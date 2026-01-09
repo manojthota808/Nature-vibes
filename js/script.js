@@ -105,6 +105,7 @@ function initGalleryContent() {
                 <img src="${img.src}" alt="${img.alt}" ${index === 0 ? 'loading="eager"' : 'loading="lazy"'}>
                 <div class="slide-content">
                     <div class="like-btn" data-id="${img.id}">
+                        <span class="like-count"></span>
                         <svg class="heart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                         </svg>
@@ -119,6 +120,7 @@ function initGalleryContent() {
         <div class="gallery-item" data-id="${img.id}">
             <img src="${img.src}" alt="${img.alt}" loading="lazy">
             <div class="gallery-like-btn" data-id="${img.id}">
+                <span class="like-count"></span>
                 <svg class="heart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                 </svg>
@@ -233,10 +235,16 @@ class NatureSlider {
 class LikeManager {
     constructor() {
         this.likedItems = new Set(JSON.parse(localStorage.getItem('likedItems') || '[]'));
+        this.apiBase = 'https://api.counterapi.dev/v1/naturestudios';
         this.init();
     }
 
     init() {
+        this.setupLikeButtons();
+        this.loadAllCounts();
+    }
+
+    setupLikeButtons() {
         // Initialize slider like buttons
         document.querySelectorAll('.like-btn').forEach(btn => {
             const id = btn.getAttribute('data-id');
@@ -244,6 +252,7 @@ class LikeManager {
                 btn.classList.add('liked');
             }
             btn.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 this.toggleLike(id, btn);
             });
@@ -256,30 +265,70 @@ class LikeManager {
                 btn.classList.add('liked');
             }
             btn.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 this.toggleLike(id, btn);
             });
         });
     }
 
-    toggleLike(id, button) {
-        const isLiked = this.likedItems.has(id);
+    async loadAllCounts() {
+        // Collect all IDs
+        const ids = new Set();
+        document.querySelectorAll('[data-id]').forEach(el => {
+            const id = el.getAttribute('data-id');
+            if (id) ids.add(id);
+        });
 
+        // We have to fetch one by one as the API doesn't support bulk.
+        // To avoid unresponsiveness, we'll fetch them lazily or in parallel batches.
+        const idArray = Array.from(ids);
+
+        // Simple parallel fetch
+        idArray.forEach(id => {
+            fetch(`${this.apiBase}/img_${id}/`)
+                .then(res => res.json())
+                .then(data => {
+                    this.updateCountUI(id, data.count);
+                })
+                .catch(err => {
+                    // console.error(err); // Silence errors
+                });
+        });
+    }
+
+    updateCountUI(id, count) {
+        document.querySelectorAll(`[data-id="${id}"] .like-count`).forEach(el => {
+            el.textContent = count > 0 ? count : '';
+        });
+    }
+
+    async toggleLike(id, button) {
+        const isLiked = this.likedItems.has(id);
+        const action = isLiked ? 'down' : 'up';
+
+        // Optimistic UI Update
         if (isLiked) {
             this.likedItems.delete(id);
             button.classList.remove('liked');
         } else {
             this.likedItems.add(id);
             button.classList.add('liked');
-            // Trigger confetti only when liking (not unliking)
             this.triggerConfetti();
         }
 
-        // Sync like state across slider and gallery
         this.syncLikeState(id);
-
-        // Save to localStorage
         localStorage.setItem('likedItems', JSON.stringify([...this.likedItems]));
+
+        // API Call
+        try {
+            const res = await fetch(`${this.apiBase}/img_${id}/${action}`);
+            const data = await res.json();
+            this.updateCountUI(id, data.count);
+        } catch (err) {
+            console.error('Failed to update like count', err);
+            // Revert on serious failure? For now, keep optimistic state to avoid flickering.
+        }
     }
 
     syncLikeState(id) {

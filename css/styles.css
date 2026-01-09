@@ -804,6 +804,31 @@ html {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
+.like-count {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.8rem;
+    color: white;
+    font-weight: 500;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.like-btn:hover .like-count,
+.gallery-like-btn:hover .like-count,
+.modal-like-btn:hover .like-count {
+    opacity: 1;
+}
+
+.modal-like-btn .like-count {
+    bottom: -25px;
+    font-size: 0.9rem;
+}
+
 .modal-like-btn {
     position: absolute;
     bottom: 40px;
