@@ -1,0 +1,660 @@
+// Slider functionality
+class NatureSlider {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.totalSlides = this.slides.length;
+        this.autoSlideInterval = null;
+        this.init();
+    }
+
+    init() {
+        this.createIndicators();
+        this.setupNavigation();
+        this.startAutoSlide();
+        this.setupKeyboardNavigation();
+    }
+
+    createIndicators() {
+        const indicatorsContainer = document.querySelector('.slider-indicators');
+        this.slides.forEach((_, index) => {
+            const indicator = document.createElement('div');
+            indicator.className = `indicator ${index === 0 ? 'active' : ''}`;
+            indicator.addEventListener('click', () => this.goToSlide(index));
+            indicatorsContainer.appendChild(indicator);
+        });
+    }
+
+    setupNavigation() {
+        const prevBtn = document.querySelector('.slider-nav.prev');
+        const nextBtn = document.querySelector('.slider-nav.next');
+
+        prevBtn.addEventListener('click', () => this.prevSlide());
+        nextBtn.addEventListener('click', () => this.nextSlide());
+    }
+
+    setupKeyboardNavigation() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') this.prevSlide();
+            if (e.key === 'ArrowRight') this.nextSlide();
+        });
+    }
+
+    goToSlide(index) {
+        this.slides[this.currentSlide].classList.remove('active');
+        document.querySelectorAll('.slider-indicators .indicator')[this.currentSlide].classList.remove('active');
+
+        this.currentSlide = index;
+        this.slides[this.currentSlide].classList.add('active');
+        document.querySelectorAll('.slider-indicators .indicator')[this.currentSlide].classList.add('active');
+
+        this.resetAutoSlide();
+    }
+
+    nextSlide() {
+        const next = (this.currentSlide + 1) % this.totalSlides;
+        this.goToSlide(next);
+    }
+
+    prevSlide() {
+        const prev = (this.currentSlide - 1 + this.totalSlides) % this.totalSlides;
+        this.goToSlide(prev);
+    }
+
+    startAutoSlide() {
+        this.autoSlideInterval = setInterval(() => {
+            this.nextSlide();
+        }, 5000);
+    }
+
+    resetAutoSlide() {
+        clearInterval(this.autoSlideInterval);
+        this.startAutoSlide();
+    }
+}
+
+// Like functionality
+class LikeManager {
+    constructor() {
+        this.likedItems = new Set(JSON.parse(localStorage.getItem('likedItems') || '[]'));
+        this.init();
+    }
+
+    init() {
+        // Initialize slider like buttons
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            const id = btn.getAttribute('data-id');
+            if (this.likedItems.has(id)) {
+                btn.classList.add('liked');
+            }
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleLike(id, btn);
+            });
+        });
+
+        // Initialize gallery like buttons
+        document.querySelectorAll('.gallery-like-btn').forEach(btn => {
+            const id = btn.getAttribute('data-id');
+            if (this.likedItems.has(id)) {
+                btn.classList.add('liked');
+            }
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleLike(id, btn);
+            });
+        });
+    }
+
+    toggleLike(id, button) {
+        const isLiked = this.likedItems.has(id);
+
+        if (isLiked) {
+            this.likedItems.delete(id);
+            button.classList.remove('liked');
+        } else {
+            this.likedItems.add(id);
+            button.classList.add('liked');
+            // Trigger confetti only when liking (not unliking)
+            this.triggerConfetti();
+        }
+
+        // Sync like state across slider and gallery
+        this.syncLikeState(id);
+
+        // Save to localStorage
+        localStorage.setItem('likedItems', JSON.stringify([...this.likedItems]));
+    }
+
+    syncLikeState(id) {
+        // Update all like buttons with the same id (including modal)
+        document.querySelectorAll(`[data-id="${id}"]`).forEach(btn => {
+            if (this.likedItems.has(id)) {
+                btn.classList.add('liked');
+            } else {
+                btn.classList.remove('liked');
+            }
+        });
+    }
+
+    triggerConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const confettiCount = 300;
+        const confetti = [];
+        const colors = [
+            '#25D366', // WhatsApp Light Green
+            '#128C7E', // WhatsApp Teal
+            '#34B7F1', // WhatsApp Blue
+            '#FFC107', // Amber/Gold (common in emojis)
+            '#FFFFFF'  // White
+        ];
+
+        // Create confetti particles
+        for (let i = 0; i < confettiCount; i++) {
+            confetti.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                r: Math.random() * 8 + 4, // Larger particles
+                d: Math.random() * confettiCount,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                tilt: Math.floor(Math.random() * 10) - 10,
+                tiltAngleIncrement: Math.random() * 0.15 + 0.08, // Faster rotation
+                tiltAngle: 0,
+                speed: Math.random() * 5 + 3 // Individual speed base
+            });
+        }
+
+        let animationId;
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            confetti.forEach((c, i) => {
+                ctx.beginPath();
+                ctx.lineWidth = c.r; // Scale line width with radius
+                ctx.strokeStyle = c.color;
+                ctx.moveTo(c.x + c.tilt + c.r, c.y);
+                ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r * 1.5); // Longer strips
+                ctx.stroke();
+                ctx.closePath();
+
+                c.tiltAngle += c.tiltAngleIncrement;
+                // Faster gravity/fall speed
+                c.y += (Math.cos(c.d) + c.speed + c.r / 2);
+                // Swaying
+                c.x += Math.sin(c.tiltAngle) * 2;
+
+                // Respawn at top if still going
+                if (c.y > canvas.height) {
+                    // Only respawn if we haven't stopped yet (controlled by timeout)
+                    if (!this.stopConfetti) {
+                        confetti[i] = {
+                            x: Math.random() * canvas.width,
+                            y: -20,
+                            r: c.r,
+                            d: c.d,
+                            color: c.color,
+                            tilt: Math.floor(Math.random() * 10) - 10,
+                            tiltAngleIncrement: c.tiltAngleIncrement,
+                            tiltAngle: c.tiltAngle,
+                            speed: c.speed
+                        };
+                    }
+                }
+            });
+
+            animationId = requestAnimationFrame(animate);
+        };
+
+        this.stopConfetti = false;
+        animate();
+
+        // Stop respawning after 2 seconds
+        setTimeout(() => {
+            this.stopConfetti = true;
+        }, 2000);
+
+        // Fully clear after 4 seconds to ensure clean up
+        setTimeout(() => {
+            cancelAnimationFrame(animationId);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }, 4000);
+    }
+
+    getRandomColor() {
+        // Kept for compatibility if used elsewhere, but main confetti uses local colors array for better performance/customization
+        const colors = [
+            '#ff3040', '#ff6b6b', '#ffa500', '#ffd700',
+            '#32cd32', '#00ced1', '#1e90ff', '#9370db',
+            '#ff1493', '#00ff7f', '#ff69b4', '#ff6347'
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+}
+
+// Fast smooth scroll function
+function smoothScrollTo(target, duration = 600) {
+    const start = window.pageYOffset;
+    const distance = target - start;
+    let startTime = null;
+
+    function animation(currentTime) {
+        if (startTime === null) startTime = currentTime;
+        const timeElapsed = currentTime - startTime;
+        const run = easeInOutCubic(timeElapsed, start, distance, duration);
+        window.scrollTo(0, run);
+        if (timeElapsed < duration) {
+            requestAnimationFrame(animation);
+        } else {
+            window.scrollTo(0, target);
+        }
+    }
+
+    function easeInOutCubic(t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) return c / 2 * t * t * t + b;
+        t -= 2;
+        return c / 2 * (t * t * t + 2) + b;
+    }
+
+    requestAnimationFrame(animation);
+}
+
+// Navigation Bar functionality
+class NavigationBar {
+    constructor() {
+        this.navbar = document.querySelector('.navbar');
+        this.hamburger = document.querySelector('.hamburger');
+        this.navMenu = document.querySelector('.nav-menu');
+        this.navLinks = document.querySelectorAll('.nav-link');
+        this.sections = document.querySelectorAll('section, #home');
+        this.init();
+    }
+
+    init() {
+        // Optimized scroll effect with throttling
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    if (window.scrollY > 50) {
+                        this.navbar.classList.add('scrolled');
+                    } else {
+                        this.navbar.classList.remove('scrolled');
+                    }
+                    this.updateActiveSection();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+
+        // Mobile menu toggle
+        this.hamburger.addEventListener('click', () => {
+            this.hamburger.classList.toggle('active');
+            this.navMenu.classList.toggle('active');
+        });
+
+        // Fast smooth scroll for navigation links
+        this.navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+
+                if (targetSection) {
+                    const offsetTop = targetId === '#home' ? 0 : targetSection.offsetTop - 80;
+                    smoothScrollTo(offsetTop, 500);
+                }
+
+                // Update active link
+                this.navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+
+                // Close mobile menu
+                this.hamburger.classList.remove('active');
+                this.navMenu.classList.remove('active');
+            });
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.navbar.contains(e.target) && this.navMenu.classList.contains('active')) {
+                this.hamburger.classList.remove('active');
+                this.navMenu.classList.remove('active');
+            }
+        });
+    }
+
+    updateActiveSection() {
+        const scrollPos = window.scrollY + 100;
+
+        this.sections.forEach(section => {
+            const top = section.offsetTop;
+            const bottom = top + section.offsetHeight;
+            const id = section.getAttribute('id');
+
+            if (scrollPos >= top && scrollPos < bottom) {
+                this.navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${id}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        });
+    }
+}
+
+// Modal Lightbox Slider
+class ModalSlider {
+    constructor() {
+        this.modalOverlay = document.getElementById('modalOverlay');
+        this.modalSlide = document.querySelector('.modal-slide');
+        this.modalLikeBtn = document.querySelector('.modal-like-btn');
+        this.currentModalIndex = 0;
+        this.galleryItems = [];
+        this.init();
+    }
+
+    init() {
+        // Get all gallery images data (from both homepage and gallery sections)
+        document.querySelectorAll('.gallery-item').forEach(item => {
+            const id = item.getAttribute('data-id');
+            const img = item.querySelector('img');
+            // Get high resolution image
+            let highResSrc = img.src;
+            if (highResSrc.includes('w=800')) {
+                highResSrc = highResSrc.replace('w=800', 'w=1920');
+            } else if (highResSrc.includes('w=')) {
+                highResSrc = highResSrc.replace(/w=\d+/, 'w=1920');
+            }
+            this.galleryItems.push({
+                id: id,
+                src: highResSrc,
+                alt: img.alt
+            });
+        });
+
+        // Setup modal navigation
+        const modalPrev = document.querySelector('.modal-nav.prev');
+        const modalNext = document.querySelector('.modal-nav.next');
+        const modalClose = document.querySelector('.modal-close');
+
+        modalPrev.addEventListener('click', () => this.prevSlide());
+        modalNext.addEventListener('click', () => this.nextSlide());
+        modalClose.addEventListener('click', () => this.closeModal());
+
+        // Close on overlay click
+        this.modalOverlay.addEventListener('click', (e) => {
+            if (e.target === this.modalOverlay) {
+                this.closeModal();
+            }
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (this.modalOverlay.classList.contains('active')) {
+                if (e.key === 'Escape') this.closeModal();
+                if (e.key === 'ArrowLeft') this.prevSlide();
+                if (e.key === 'ArrowRight') this.nextSlide();
+            }
+        });
+
+        // Create modal indicators
+        this.createModalIndicators();
+
+        // Setup modal like button
+        this.modalLikeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = this.modalLikeBtn.getAttribute('data-id');
+            if (window.likeManager) {
+                window.likeManager.toggleLike(id, this.modalLikeBtn);
+            }
+        });
+    }
+
+    openModal(index) {
+        this.currentModalIndex = index;
+        this.updateModalSlide();
+        this.modalOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeModal() {
+        this.modalOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    updateModalSlide() {
+        const item = this.galleryItems[this.currentModalIndex];
+        const img = this.modalSlide.querySelector('img');
+        img.src = item.src;
+        img.alt = item.alt;
+        this.modalLikeBtn.setAttribute('data-id', item.id);
+
+        // Update like button state
+        if (window.likeManager && window.likeManager.likedItems.has(item.id)) {
+            this.modalLikeBtn.classList.add('liked');
+        } else {
+            this.modalLikeBtn.classList.remove('liked');
+        }
+
+        // Update indicators
+        document.querySelectorAll('.modal-indicators .indicator').forEach((ind, i) => {
+            ind.classList.toggle('active', i === this.currentModalIndex);
+        });
+    }
+
+    nextSlide() {
+        this.currentModalIndex = (this.currentModalIndex + 1) % this.galleryItems.length;
+        this.updateModalSlide();
+    }
+
+    prevSlide() {
+        this.currentModalIndex = (this.currentModalIndex - 1 + this.galleryItems.length) % this.galleryItems.length;
+        this.updateModalSlide();
+    }
+
+    createModalIndicators() {
+        const indicatorsContainer = document.querySelector('.modal-indicators');
+        this.galleryItems.forEach((_, index) => {
+            const indicator = document.createElement('div');
+            indicator.className = `indicator ${index === 0 ? 'active' : ''}`;
+            indicator.addEventListener('click', () => {
+                this.currentModalIndex = index;
+                this.updateModalSlide();
+            });
+            indicatorsContainer.appendChild(indicator);
+        });
+    }
+}
+
+// Gallery item click to open modal (works for both homepage and gallery sections)
+function setupGalleryClicks() {
+    document.querySelectorAll('.gallery-item').forEach((item) => {
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.gallery-like-btn')) {
+                if (window.modalSlider) {
+                    const id = item.getAttribute('data-id');
+                    // Find correct index based on data-id
+                    const correctIndex = window.modalSlider.galleryItems.findIndex(gi => gi.id === id);
+                    if (correctIndex !== -1) {
+                        window.modalSlider.openModal(correctIndex);
+                    }
+                }
+            }
+        });
+    });
+}
+
+// Gallery Pagination
+class GalleryPagination {
+    constructor(gallerySelector, paginationSelector, itemsPerPage = 6) {
+        this.gallery = document.querySelector(gallerySelector);
+        this.pagination = document.querySelector(paginationSelector);
+        this.items = Array.from(this.gallery.querySelectorAll('.gallery-item'));
+        this.itemsPerPage = itemsPerPage;
+        this.currentPage = 1;
+        this.totalPages = Math.ceil(this.items.length / this.itemsPerPage);
+        this.init();
+    }
+
+    init() {
+        this.renderPagination();
+        this.showPage(1);
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        const prevBtn = this.pagination.querySelector('.prev-page');
+        const nextBtn = this.pagination.querySelector('.next-page');
+
+        prevBtn.addEventListener('click', () => this.prevPage());
+        nextBtn.addEventListener('click', () => this.nextPage());
+    }
+
+    showPage(page) {
+        this.currentPage = Math.max(1, Math.min(page, this.totalPages));
+
+        this.items.forEach((item, index) => {
+            const pageStart = (this.currentPage - 1) * this.itemsPerPage;
+            const pageEnd = pageStart + this.itemsPerPage;
+
+            if (index >= pageStart && index < pageEnd) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+
+        this.updatePaginationButtons();
+        this.renderPagination();
+
+        // Smooth scroll to gallery section top
+        const gallerySection = this.gallery.closest('section');
+        if (gallerySection) {
+            const offsetTop = gallerySection.offsetTop - 80;
+            smoothScrollTo(offsetTop, 400);
+        }
+    }
+
+    prevPage() {
+        if (this.currentPage > 1) {
+            this.showPage(this.currentPage - 1);
+        }
+    }
+
+    nextPage() {
+        if (this.currentPage < this.totalPages) {
+            this.showPage(this.currentPage + 1);
+        }
+    }
+
+    updatePaginationButtons() {
+        const prevBtn = this.pagination.querySelector('.prev-page');
+        const nextBtn = this.pagination.querySelector('.next-page');
+
+        prevBtn.disabled = this.currentPage === 1;
+        nextBtn.disabled = this.currentPage === this.totalPages;
+    }
+
+    renderPagination() {
+        const numbersContainer = this.pagination.querySelector('.pagination-numbers');
+        numbersContainer.innerHTML = '';
+
+        if (this.totalPages <= 1) {
+            return;
+        }
+
+        const maxVisible = 5;
+        let startPage = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(this.totalPages, startPage + maxVisible - 1);
+
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        // First page
+        if (startPage > 1) {
+            this.createPageNumber(numbersContainer, 1);
+            if (startPage > 2) {
+                this.createEllipsis(numbersContainer);
+            }
+        }
+
+        // Page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            this.createPageNumber(numbersContainer, i);
+        }
+
+        // Last page
+        if (endPage < this.totalPages) {
+            if (endPage < this.totalPages - 1) {
+                this.createEllipsis(numbersContainer);
+            }
+            this.createPageNumber(numbersContainer, this.totalPages);
+        }
+    }
+
+    createPageNumber(container, pageNum) {
+        const number = document.createElement('button');
+        number.className = `pagination-number ${pageNum === this.currentPage ? 'active' : ''}`;
+        number.textContent = pageNum;
+        number.addEventListener('click', () => this.showPage(pageNum));
+        container.appendChild(number);
+    }
+
+    createEllipsis(container) {
+        const ellipsis = document.createElement('span');
+        ellipsis.className = 'pagination-ellipsis';
+        ellipsis.textContent = '...';
+        container.appendChild(ellipsis);
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    window.natureSlider = new NatureSlider();
+    window.likeManager = new LikeManager();
+    window.navigationBar = new NavigationBar();
+    window.modalSlider = new ModalSlider();
+
+    // Setup gallery clicks after modal slider is initialized
+    setupGalleryClicks();
+
+    // Initialize pagination for both galleries
+    window.featuredGalleryPagination = new GalleryPagination('.homepage-gallery .gallery-grid', '.homepage-gallery .pagination', 6);
+    window.natureGalleryPagination = new GalleryPagination('.gallery-section .gallery-grid', '.gallery-section .pagination', 6);
+
+    // Update LikeManager to handle modal like buttons
+    const originalSyncLikeState = window.likeManager.syncLikeState.bind(window.likeManager);
+    window.likeManager.syncLikeState = function (id) {
+        originalSyncLikeState(id);
+        // Also update modal like button if modal is open
+        if (window.modalSlider && window.modalSlider.modalOverlay.classList.contains('active')) {
+            const modalBtn = window.modalSlider.modalLikeBtn;
+            if (modalBtn.getAttribute('data-id') === id) {
+                if (this.likedItems.has(id)) {
+                    modalBtn.classList.add('liked');
+                } else {
+                    modalBtn.classList.remove('liked');
+                }
+            }
+        }
+    };
+
+    // Handle window resize for confetti canvas
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            const canvas = document.getElementById('confetti-canvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }, 100);
+    });
+});
