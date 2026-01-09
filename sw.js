@@ -1,9 +1,9 @@
 const CACHE_NAME = 'nature-studios-v1';
 const STATIC_ASSETS = [
-    '../',
-    '../index.html',
-    '../css/styles.css',
-    './script.js'
+    './',
+    './index.html',
+    './css/styles.css',
+    './js/script.js'
 ];
 
 self.addEventListener('install', event => {
