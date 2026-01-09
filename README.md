@@ -30,11 +30,11 @@ The site is designed with a focus on aesthetics, offering a premium and immersiv
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/manojthota808/Nature-vibes.git
+    git clone https://github.com/manojthota808/Nature-studios.git
     ```
 2.  Navigate to the project directory:
     ```bash
-    cd Nature-vibes
+    cd Nature-studios
     ```
 3.  Open `index.html` in your preferred web browser to explore the gallery.
 
