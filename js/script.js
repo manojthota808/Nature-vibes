@@ -44,8 +44,11 @@ let currentImages = [];
 
 // Initialize Content
 function initGalleryContent() {
-    const params = new URLSearchParams(window.location.search);
-    const galleryType = params.get('gallery') || 'yeshu';
+    // Get gallery type from hash (e.g. #yeshu or #nature) or default to yeshu
+    // Remove the '#' character if present
+    const hash = window.location.hash.replace('#', '');
+    // Allow valid gallery types, fallback to 'yeshu'
+    const galleryType = (['yeshu', 'nature'].includes(hash)) ? hash : 'yeshu';
 
     // Update Nav Links
     document.querySelectorAll('.gallery-nav-link').forEach(link => link.classList.remove('active'));
@@ -146,7 +149,7 @@ function initGalleryContent() {
 }
 
 // Init
-initGalleryContent();
+// Init call moved to DOMContentLoaded
 
 // Classes
 
@@ -831,8 +834,28 @@ class GalleryPagination {
     }
 }
 
+// Handle hash changes for gallery switching
+window.addEventListener('hashchange', () => {
+    // Re-initialize content when hash changes (e.g. clicking links or back button)
+    initGalleryContent();
+    // Scroll to top or specific section if needed
+    // window.scrollTo(0, 0); 
+});
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    // Check for legacy query params and migrate
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('gallery')) {
+        const gallery = params.get('gallery');
+        // Clear query params and set hash
+        // Use replaceState to clear the query string from the URL bar without reloading
+        const newUrl = `${window.location.pathname}#${gallery}`;
+        window.history.replaceState({}, '', newUrl);
+    }
+
+    // Initialize gallery content
+    initGalleryContent();
     window.natureSlider = new NatureSlider();
     window.likeManager = new LikeManager();
     window.navigationBar = new NavigationBar();
