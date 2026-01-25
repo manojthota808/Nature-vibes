@@ -179,7 +179,11 @@ class LikeManager {
         } else {
             this.likedItems.add(id);
             button.classList.add('liked');
-            this.triggerConfetti();
+            button.classList.add('liked');
+            const rect = button.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            this.triggerConfetti(x, y);
         }
 
         this.syncLikeState(id);
@@ -207,90 +211,37 @@ class LikeManager {
         });
     }
 
-    // Trigger confetti
-    triggerConfetti() {
-        const canvas = document.getElementById('confetti-canvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+    // Trigger confetti (Using canvas-confetti library)
+    triggerConfetti(inputX, inputY) {
+        if (typeof confetti === 'undefined') return;
 
-        const confettiCount = 300;
-        const confetti = [];
-        const colors = [
-            '#25D366',
-            '#128C7E',
-            '#34B7F1',
-            '#FFC107',
-            '#FFFFFF'
-        ];
+        // Convert coordinates to 0-1 range for the library
+        // inputX/Y are absolute page coordinates
+        // We need client coordinates (relative to viewport)
+        // Since we passed page coordinates, we subtract scroll
+        const x = (inputX - window.scrollX) / window.innerWidth;
+        const y = (inputY - window.scrollY) / window.innerHeight;
 
-        // Initialize particles
-        for (let i = 0; i < confettiCount; i++) {
-            confetti.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height - canvas.height,
-                r: Math.random() * 8 + 4,
-                d: Math.random() * confettiCount,
-                color: colors[Math.floor(Math.random() * colors.length)],
-                tilt: Math.floor(Math.random() * 10) - 10,
-                tiltAngleIncrement: Math.random() * 0.15 + 0.08,
-                tiltAngle: 0,
-                speed: Math.random() * 5 + 3
-            });
-        }
+        const colors = ['#FF4081', '#2196F3', '#FF5252', '#E040FB', '#7C4DFF'];
 
-        let animationId;
-        const animate = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            confetti.forEach((c, i) => {
-                ctx.beginPath();
-                ctx.lineWidth = c.r;
-                ctx.strokeStyle = c.color;
-                ctx.moveTo(c.x + c.tilt + c.r, c.y);
-                ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r * 1.5);
-                ctx.stroke();
-                ctx.closePath();
-
-                c.tiltAngle += c.tiltAngleIncrement;
-                // Physics
-                c.y += (Math.cos(c.d) + c.speed + c.r / 2);
-                c.x += Math.sin(c.tiltAngle) * 2;
-
-                // Respawn logic
-                if (c.y > canvas.height) {
-                    if (!this.stopConfetti) {
-                        confetti[i] = {
-                            x: Math.random() * canvas.width,
-                            y: -20,
-                            r: c.r,
-                            d: c.d,
-                            color: c.color,
-                            tilt: Math.floor(Math.random() * 10) - 10,
-                            tiltAngleIncrement: c.tiltAngleIncrement,
-                            tiltAngle: c.tiltAngle,
-                            speed: c.speed
-                        };
-                    }
-                }
-            });
-
-            animationId = requestAnimationFrame(animate);
-        };
-
-        this.stopConfetti = false;
-        animate();
-
-        // Cleanup
-        setTimeout(() => {
-            this.stopConfetti = true;
-        }, 2000);
-
-        setTimeout(() => {
-            cancelAnimationFrame(animationId);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }, 4000);
+        // Option 2 Style: "Blast" / Cannon
+        // A single burst with high spread
+        confetti({
+            origin: { x: 0.5, y: 0.5 }, // Middle of the screen
+            angle: 90,
+            spread: 360, // Full circular blast
+            startVelocity: 55, // Very heavy blast
+            decay: 0.9,
+            gravity: 1,
+            drift: 0,
+            ticks: 300, // Last longer
+            colors: colors,
+            shapes: ['square', 'circle'],
+            scalar: 1.5, // Much bigger particles
+            particleCount: 400, // Massive count
+            disableForReducedMotion: true,
+            zIndex: 9999
+        });
     }
 }
 
